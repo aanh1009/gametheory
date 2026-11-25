@@ -45,40 +45,76 @@ class Autobidding:
 
     def check_equilibrium(self, multipliers: list[float]):
         ## need to check if changing the multipiers would improve without exceeding
-        ## the budget 
+        ## the budget
 
         ## for each person, loop through the items that they did not win,
-        ## check if they change , would 
+        ## check if they change , would
         ## that excceed their budget?
-        
+
         out, values = self.bid_outcome(multipliers=multipliers)
         for i in range(len(values)):
             if values[i][1] > self.constraint_values[i]:
                 return False
-            
+
         for i in range(self.n_players):
             losses = [win for win in out if win[3] != i]
 
-            ## as soon as we found a multiplier that would let this person win,
-            ## it is not an equilbrium 
+            thresholds = {0.0, 1.0}
             for j in range(len(losses)):
-                new_mu = losses[j][1]/self.valuations[i][losses[j][0]]
-                if 0<= new_mu <= 1:
-                    new_mus = copy.deepcopy(multipliers)
-                    new_mus[i] = new_mu
-                    new_wins, new_values = self.bid_outcome(new_mus)
-                    if new_values[i][1] <= self.constraint_values[i] and new_values[i][0] > values[i][0]:
-                        return False
-            
+                threshold = losses[j][1] / self.valuations[i][losses[j][0]]
+                if 0 <= threshold <= 1:
+                    thresholds.add(threshold)
+
+            points = sorted(thresholds)
+            candidates = points + [
+                (left + right) / 2
+                for left, right in zip(points, points[1:])
+            ]
+            for new_mu in candidates:
+                new_mus = copy.deepcopy(multipliers)
+                new_mus[i] = new_mu
+                new_wins, new_values = self.bid_outcome(new_mus)
+                if new_values[i][1] <= self.constraint_values[i] and new_values[i][0] > values[i][0]:
+                    return False
+
         return True
 
-
+    ## find multipliers that form equilibria with a step
+    ## of 0.01 for all players
     def find_equilibria(self):
         grid = [step / 100 for step in range(101)]
         for candidate in product(grid, repeat=self.n_players):
             multipliers = list(candidate)
             if self.check_equilibrium(multipliers):
                 yield multipliers
+
+    ## check across all equilibria to see if there's an 
+    ## equilibria that improves any person's value
+
+    ## this is the intuition behind the non-AICness of autobidding:
+    ## a generous constraint (budget) allows for worse payoffs,
+    ## so people are incentivized to cheat (under some conditions)
+    def check_deviation_incentive(self):
+        best_worst_outcomes = [[0, float('inf')] for _ in range(self.n_players)]
+        equilibria = self.find_equilibria()
+
+        for multipliers in equilibria:
+            _, out = self.bid_outcome(multipliers=multipliers)
+            for i in range(self.n_players):
+                best_worst_outcomes[i][0] = max(best_worst_outcomes[i][0], out[i][0])
+                best_worst_outcomes[i][1] = min(best_worst_outcomes[i][1], out[i][0])
+
+        return best_worst_outcomes
+
+def test_1():
+    game = Autobidding(n_players=2, n_queries=4, valuations=[[2.1, 40, 30, 20], [1, 20, 25, 100]], constraint_type="budget", constraint_values=[20, 49])
+
+    print(game.check_deviation_incentive())
+
+def run_tests():
+    test_1()
+
+run_tests()
 
 
     
