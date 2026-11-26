@@ -7,13 +7,12 @@ from collections import defaultdict
 from itertools import product
 import copy
 
-class Autobidding:
-    def __init__(self, n_players: int, n_queries: int, valuations: list[list], constraint_type: str, constraint_values: list[int]):
+class AutobiddingBudget:
+    def __init__(self, n_players: int, n_queries: int, valuations: list[list], budgets: list[int]):
         self.n_players = n_players
         self.n_queries = n_queries
         self.valuations = valuations
-        self.constraint_type = constraint_type
-        self.constraint_values = constraint_values
+        self.budgets = budgets
 
     ## given the multipliers, check who wins, and check if it exceeds budget constraint
     def bid_outcome(self, multipliers: list[float]):
@@ -53,7 +52,7 @@ class Autobidding:
 
         out, values = self.bid_outcome(multipliers=multipliers)
         for i in range(len(values)):
-            if values[i][1] > self.constraint_values[i]:
+            if values[i][1] > self.budgets[i]:
                 return False
 
         for i in range(self.n_players):
@@ -74,7 +73,7 @@ class Autobidding:
                 new_mus = copy.deepcopy(multipliers)
                 new_mus[i] = new_mu
                 new_wins, new_values = self.bid_outcome(new_mus)
-                if new_values[i][1] <= self.constraint_values[i] and new_values[i][0] > values[i][0]:
+                if new_values[i][1] <= self.budgets[i] and new_values[i][0] > values[i][0]:
                     return False
 
         return True
@@ -106,8 +105,10 @@ class Autobidding:
 
         return best_worst_outcomes
 
+## will have 1 - 2 more classes that implement the new criteria
+
 def test_1():
-    game = Autobidding(n_players=2, n_queries=4, valuations=[[2.1, 40, 30, 20], [1, 20, 25, 100]], constraint_type="budget", constraint_values=[20, 49])
+    game = AutobiddingBudget(n_players=2, n_queries=4, valuations=[[2.1, 40, 30, 20], [1, 20, 25, 100]], budgets=[20, 49])
 
     print(game.check_deviation_incentive())
 
