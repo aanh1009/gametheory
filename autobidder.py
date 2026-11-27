@@ -80,11 +80,14 @@ class AutobiddingBudget:
 
     ## find multipliers that form equilibria with a step
     ## of 0.01 for all players
-    def find_equilibria(self):
+    def find_equilibria(self, on_candidate=None):
         grid = [step / 100 for step in range(101)]
         for candidate in product(grid, repeat=self.n_players):
             multipliers = list(candidate)
-            if self.check_equilibrium(multipliers):
+            is_equilibrium = self.check_equilibrium(multipliers)
+            if on_candidate is not None:
+                on_candidate(multipliers.copy(), is_equilibrium)
+            if is_equilibrium:
                 yield multipliers
 
     ## check across all equilibria to see if there's an 
@@ -93,7 +96,7 @@ class AutobiddingBudget:
     ## this is the intuition behind the non-AICness of autobidding:
     ## a generous constraint (budget) allows for worse payoffs,
     ## so people are incentivized to cheat (under some conditions)
-    def check_deviation_incentive(self):
+    def check_best_worst_outcome(self):
         best_worst_outcomes = [[0, float('inf')] for _ in range(self.n_players)]
         equilibria = self.find_equilibria()
 
@@ -105,17 +108,33 @@ class AutobiddingBudget:
 
         return best_worst_outcomes
 
+
+def check_deviation_incentive(n_players, n_queries, valuations, budgets):
+    game = AutobiddingBudget(n_players=n_players, n_queries=  n_queries, valuations= valuations, budgets=budgets)
+    base_best_worst = [best_worst[1] for best_worst in game.check_best_worst_outcome()]
+    underreport_best_worst = [0 for _ in range(game.n_players)]
+
+    for i in range(game.n_players):
+        for j in range(game.budgets[i]):
+            new_budget = copy.deepcopy(game.budgets)
+            new_budget[i] = j 
+            new_game = AutobiddingBudget(n_players=n_players, n_queries= n_queries, valuations= valuations, budgets=new_budget)
+            new_best_worst = new_game.check_best_worst_outcome()
+            underreport_best_worst[i] = max(underreport_best_worst[i], new_best_worst[i][0])
+
+    
+    return base_best_worst, underreport_best_worst
+
+    
+
 ## will have 1 - 2 more classes that implement the new criteria
 
 def test_1():
-    game = AutobiddingBudget(n_players=2, n_queries=4, valuations=[[2.1, 40, 30, 20], [1, 20, 25, 100]], budgets=[20, 49])
-
-    print(game.check_deviation_incentive())
+    print(check_deviation_incentive(n_players=2, n_queries=4, valuations=[[2.1, 40, 30, 20], [1, 20, 25, 100]], budgets=[20, 49]))
 
 def run_tests():
     test_1()
 
-run_tests()
+if __name__ == "__main__":
+    run_tests()
 
-
-    
